@@ -5,155 +5,126 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
       body { font-family: sans-serif; padding: 1rem; background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #000); }
-      .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
-      .product { border: 1px solid var(--tg-theme-secondary-bg-color, #eee); padding: 1rem; border-radius: 8px; display: flex; flex-direction: column; }
-      .product img { width: 100%; height: 200px; object-fit: cover; border-radius: 6px; margin-bottom: 0.5rem; }
-      button { background: var(--tg-theme-button-color, #2481cc); color: var(--tg-theme-button-text-color, #fff); border: none; padding: 0.6rem 1rem; border-radius: 6px; width: 100%; cursor: pointer; }
-      .hidden { display: none; }
-      .receipt-box { background: #f5f5f5; padding: 1.2rem; border-radius: 12px; border: 1px solid #ddd; }
+      .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; }
+      .product { border: 1px solid var(--tg-theme-secondary-bg-color, #eee); padding: 1rem; border-radius: 8px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+      .product img { width: 100%; height: 120px; object-fit: cover; border-radius: 6px; margin-bottom: 0.5rem; }
+      button { background: var(--tg-theme-button-color, #2481cc); color: var(--tg-theme-button-text-color, #fff); border: none; padding: 0.6rem; border-radius: 6px; width: 100%; cursor: pointer; margin-top: 0.5rem; }
+      .receipt-box { background: #f5f5f5; padding: 1.2rem; border-radius: 12px; border: 1px solid #ddd; margin-top: 1.5rem; }
       .bank-row { margin: 0.8rem 0; line-height: 1.4; }
+      input { width: 100%; padding: 0.5rem; margin-bottom: 0.5rem; box-sizing: border-box; }
+      .hidden { display: none; }
     </style>
   </head>
   <body>
     <h1>Ice Shop</h1>
-
     <div id="catalog"></div>
 
     <div style="margin-top: 2rem;">
       <h2>Корзина</h2>
       <p id="cartContent">Пока пусто</p>
-      <p>Итого: <strong id="cartTotal">0 ₽</strong></p>
+      <p><b>Итого: <span id="cartTotal">0</span> ₽</b></p>
       <button id="checkoutBtn" disabled>Оформить заказ</button>
     </div>
 
     <!-- Форма заказа -->
     <div id="orderForm" class="hidden">
       <h2>Оформление заказа</h2>
-      <input type="text" id="phone" placeholder="Номер телефона (+7...)" style="width:100%; padding:0.5rem; margin-bottom:0.5rem;">
-      <input type="text" id="address" placeholder="Улица, дом" style="width:100%; padding:0.5rem; margin-bottom:0.5rem;">
-      <input type="text" id="entrance" placeholder="Подъезд" style="width:100%; padding:0.5rem; margin-bottom:0.5rem;">
-      <input type="text" id="floorApt" placeholder="Этаж, квартира" style="width:100%; padding:0.5rem; margin-bottom:0.5rem;">
-      <p style="font-size:0.9rem; color:#666;">После «Оплатить» появятся реквизиты для перевода.</p>
-      <button onclick="submitOrder()">Оплатить</button>
-    </div>
-
-    <!-- ЭКРАН С РЕКВИЗИТАМИ (НОВЫЙ) -->
-    <div id="receipt" class="hidden receipt-box">
-      <h2>Реквизиты для оплаты</h2>
-      <div class="bank-row">
-        <strong>СБП / Перевод на карту:</strong><br>
-        +7 (911) 598-28-19 (ВТБ)<br>
-        <small>Получатель: Егор П.</small>
-      </div>
-      <div class="bank-row">
-        <strong>QR-код для СБП (если есть):</strong><br>
-        <!-- Сюда можно вставить картинку с QR -->
-        <!-- <img src="qr.png" style="max-width:200px;"> -->
-      </div>
-      <p style="margin-top:1rem; font-size:0.9rem;">
-        В назначении платежа обязательно укажите <strong>номер заказа</strong>, чтобы мы быстро его нашли.
-      </p>
-      <button onclick="closeApp()" style="margin-top:1rem;">Готово, закрыть</button>
+      <input type="text" id="phone" placeholder="Номер телефона (+7...)" required>
+      <input type="text" id="address" placeholder="Улица, дом, подъезд, квартира" required>
+      <button onclick="sendOrder()">Оплатить заказ</button>
+      <p style="font-size: 0.8rem; color: gray;">После нажатия вы получите реквизиты для перевода.</p>
     </div>
 
     <script>
       const tg = window.Telegram.WebApp;
       tg.ready();
 
-      // ================= КАТАЛОГ =================
+      // 1. Список товаров
       const products = [
-        {
-          name: "AirPods Pro 3",
-          price: 19990,
-          desc: "Премиальный звук, шумоподавление, прозрачный режим.",
-          image: "https://via.placeholder.com/300x300?text=AirPods+Pro+3"
-        },
-        {
-          name: "Apple Watch Series 9",
-          price: 39990,
-          desc: "Яркий OLED, отслеживание активности, быстрая зарядка.",
-          image: "https://via.placeholder.com/300x300?text=Watch+Series+9"
-        }
+        { id: 1, name: "Мороженое Ваниль", price: 120, img: "https://via.placeholder.com/200/C4C4C4/808080?text=Vanilla" },
+        { id: 2, name: "Эскимо Шоколад", price: 150, img: "https://via.placeholder.com/200/C4C4C4/808080?text=Choco" },
+        { id: 3, name: "Фруктовый лед", price: 90, img: "https://via.placeholder.com/200/C4C4C4/808080?text=Ice" },
+        { id: 4, name: "Рожок Клубника", price: 130, img: "https://via.placeholder.com/200/C4C4C4/808080?text=Strawberry" }
       ];
-      // ==========================================
 
-      let cart = [];
-      let total = 0;
+      const catalog = document.getElementById('catalog');
+      const cartContent = document.getElementById('cartContent');
+      const cartTotalEl = document.getElementById('cartTotal');
+      const checkoutBtn = document.getElementById('checkoutBtn');
+      const orderForm = document.getElementById('orderForm');
+      const phoneInput = document.getElementById('phone');
+      const addressInput = document.getElementById('address');
 
-      function renderCatalog() {
-        const catalog = document.getElementById('catalog');
-        catalog.className = 'product-grid';
-        catalog.innerHTML = products.map(p => `
-          <div class="product">
-            <img src="${p.image}" alt="${p.name}" loading="lazy">
-            <h3>${p.name}</h3>
-            <p style="flex-grow:1; color:var(--tg-theme-hint-color, #888);">${p.desc}</p>
-            <p><strong>${p.price.toLocaleString()} ₽</strong></p>
-            <button onclick="addToCart('${p.name}', ${p.price})">В корзину</button>
-          </div>
-        `).join('');
+      let cart = [];  // <-- Вот это было ошибкой раньше, теперь тут []
+
+      // 2. Отрисовка каталога
+      products.forEach(product => {
+        const card = document.createElement('div');
+        card.className = 'product';
+        card.innerHTML = `
+          <img src="${product.img}" alt="${product.name}">
+          <h3>${product.name}</h3>
+          <p>${product.price} ₽</p>
+          <button onclick="addToCart(${product.id})">В корзину</button>
+        `;
+        catalog.appendChild(card);
+      });
+
+      // 3. Логика корзины
+      function addToCart(id) {
+        const product = products.find(p => p.id === id);
+        cart.push(product);
+        updateCart();
       }
 
-      function addToCart(name, price) {
-        cart.push({ name, price });
-        total += price;
-        renderCart();
-      }
-
-      function renderCart() {
-        const cartContent = document.getElementById('cartContent');
-        const cartTotal = document.getElementById('cartTotal');
-        const checkoutBtn = document.getElementById('checkoutBtn');
-
+      function updateCart() {
         if (cart.length === 0) {
-          cartContent.textContent = 'Пока пусто';
-          cartTotal.textContent = '0 ₽';
+          cartContent.innerText = "Пока пусто";
+          cartTotalEl.innerText = "0";
           checkoutBtn.disabled = true;
           return;
         }
 
-        cartContent.innerHTML = cart.map((item, i) => `${i + 1}. ${item.name} — ${item.price.toLocaleString()} ₽`).join('<br>');
-        cartTotal.textContent = total.toLocaleString() + ' ₽';
+        let total = 0;
+        let itemsText = "";
+        cart.forEach((item, index) => {
+          total += item.price;
+          itemsText += `${index + 1}. ${item.name} - ${item.price} ₽\n`;
+        });
+
+        cartContent.innerText = itemsText;
+        cartTotalEl.innerText = total;
         checkoutBtn.disabled = false;
       }
 
-      document.getElementById('checkoutBtn').addEventListener('click', () => {
-        document.getElementById('catalog').classList.add('hidden');
-        document.getElementById('orderForm').classList.remove('hidden');
-      });
+      // 4. Открытие формы и отправка данных в бота
+      checkoutBtn.onclick = () => {
+        catalog.style.display = 'none';
+        orderForm.classList.remove('hidden');
+      };
 
-      function submitOrder() {
-        const phone = document.getElementById('phone').value.trim();
-        const address = document.getElementById('address').value.trim();
-        const entrance = document.getElementById('entrance').value.trim();
-        const floorApt = document.getElementById('floorApt').value.trim();
-
+      function sendOrder() {
+        const phone = phoneInput.value.trim();
+        const address = addressInput.value.trim();
+        const total = cart.reduce((sum, item) => sum + item.price, 0);
+        
         if (!phone || !address) {
-          alert('Заполните телефон и адрес.');
+          alert("Заполните все поля!");
           return;
         }
 
-        const payload = {
-          action: 'order',
-          items: cart,
-          total: total,
-          contact: { phone, address, entrance, floorApt }
-        };
+        // Формируем строку данных: PAY_|Телефон|Адрес|Сумма|Список товаров
+        let productsList = "";
+        cart.forEach((item, i) => {
+            productsList += `${item.name} (${item.price}₽)`;
+            if (i < cart.length - 1) productsList += "\n";
+        });
 
-        // Отправляем заказ в бота
-        tg.sendData(JSON.stringify(payload));
+        const dataToSend = `PAY_${phone}|${address}|${total}|${productsList}`;
 
-        // Показываем экран с реквизитами
-        document.getElementById('orderForm').classList.add('hidden');
-        document.getElementById('receipt').classList.remove('hidden');
+        // Отправляем данные в бота
+        tg.sendData(dataToSend);
       }
-
-      function closeApp() {
-        tg.close();
-      }
-
-      renderCatalog();
-      renderCart();
     </script>
   </body>
 </html>
